@@ -46,19 +46,24 @@ class LampWidget(QWidget):
         super().__init__()
         self.color = QColor(50, 50, 50)
         self.setWindowTitle("Лампа")
-        self.setGeometry(100, 100, 200, 200)
+        self.setGeometry(100, 100, 240, 260)
         self.timer = QTimer()
         self.timer.timeout.connect(self.repaint)
         self.timer.start(100)
         from PyQt5.QtWidgets import QPushButton
         self.button = QPushButton("Записать эталон", self)
-        self.button.setGeometry(40, 160, 120, 30)
+        self.button.setGeometry(60, 180, 120, 30)
         self.button.clicked.connect(self.record_reference)
+        from PyQt5.QtWidgets import QCheckBox
+        self.artnet_checkbox = QCheckBox("Включить ArtNet", self)
+        self.artnet_checkbox.setChecked(True)
+        self.artnet_checkbox.setGeometry(60, 20, 120, 20)
+        self.setStyleSheet("QPushButton { font-size: 12px; } QCheckBox { font-size: 12px; }")
 
     def paintEvent(self, e):
         qp = QPainter(self)
         qp.setBrush(self.color)
-        qp.drawEllipse(50, 50, 100, 100)
+        qp.drawEllipse(70, 60, 100, 100)
 
     def turn_on(self):
         self.color = QColor(0, 255, 0)
@@ -129,13 +134,15 @@ def recorder_thread():
                 last_match_time = time.time()
                 if not lamp_on:
                     print("Голос совпал — включаем лампу")
-                    send_dmx_255(255, 345)
+                    if widget.artnet_checkbox.isChecked():
+                        send_dmx_255(255, 345)
                     app.postEvent(widget, QTimerEvent(0))
                     widget.turn_on()
                     lamp_on = True
             elif lamp_on and time.time() - last_match_time > SILENCE_TIMEOUT:
                 print("Нет совпадения 5 секунд — выключаем лампу")
-                send_dmx_255(0, 345)
+                if widget.artnet_checkbox.isChecked():
+                    send_dmx_255(0, 345)
                 app.postEvent(widget, QTimerEvent(0))
                 widget.turn_off()
                 lamp_on = False
