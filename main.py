@@ -19,6 +19,27 @@ SILENCE_TIMEOUT = 15  # сек
 q_audio = queue.Queue()
 lamp_on = False
 reference_embedding = None
+import socket
+
+def send_dmx_255(level, channel):
+    packet = bytearray(18 + 512)
+    packet[0:8] = b'Art-Net\x00'
+    packet[8] = 0x00  # OpCode low byte (ArtDMX)
+    packet[9] = 0x50  # OpCode high byte
+    packet[10] = 0x00
+    packet[11] = 14
+    packet[12] = 0x00
+    packet[13] = 0x00
+    packet[14] = 0x00  # Subnet/Universe
+    packet[15] = 0x00
+    packet[16] = 0x02  # Length Hi
+    packet[17] = 0x00  # Length Lo
+    packet[18 + channel - 1] = level   # Значение канала 1 = 255
+
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    sock.sendto(packet, ('255.255.255.255', 6454))
 
 class LampWidget(QWidget):
     def __init__(self):
@@ -108,15 +129,21 @@ def recorder_thread():
                 last_match_time = time.time()
                 if not lamp_on:
                     print("Голос совпал — включаем лампу")
+                    send_dmx_255(255, 345)
                     app.postEvent(widget, QTimerEvent(0))
                     widget.turn_on()
                     lamp_on = True
             elif lamp_on and time.time() - last_match_time > SILENCE_TIMEOUT:
                 print("Нет совпадения 5 секунд — выключаем лампу")
+                send_dmx_255(0, 345)
                 app.postEvent(widget, QTimerEvent(0))
                 widget.turn_off()
                 lamp_on = False
             buffer = []
+
+
+
+
 
 if __name__ == "__main__":
     print("Загрузка эталона...")
